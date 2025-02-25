@@ -1,26 +1,18 @@
 const WebSocket = require("ws");
-const server = new WebSocket.Server({ port: process.env.PORT || 8080 });
+const server = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
 let players = {};
 
 server.on("connection", (socket) => {
-  console.log("Pemain baru terhubung!");
+  console.log("Pemain terhubung!");
 
-  socket.on("message", (message) => {
-    let data = JSON.parse(message);
-    players[data.id] = { x: data.x, y: data.y };
-
-    // Kirim posisi semua pemain ke semua klien
-    server.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(players));
-      }
-    });
+  socket.on("message", (data) => {
+    let msg = JSON.parse(data);
+    players[msg.id] = { x: msg.x, y: msg.y };
+    socket.send(JSON.stringify(players));
   });
 
   socket.on("close", () => {
-    console.log("Pemain terputus");
+    console.log("Pemain keluar!");
   });
 });
-
-console.log("Server berjalan di port " + (process.env.PORT || 8080));
