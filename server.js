@@ -1,6 +1,6 @@
 const WebSocket = require("ws");
 
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: 8000 });
 
 wss.on("connection", function connection(ws) {
   console.log("Pemain terhubung");
@@ -29,4 +29,4 @@ wss.on("connection", function connection(ws) {
   });
 });
 
-console.log("Server WebSocket berjalan di ws://localhost:8080");
+console.log("Server WebSocket berjalan di ws://localhost:8000");
