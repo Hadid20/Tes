@@ -6,12 +6,13 @@ wss.on("connection", function connection(ws) {
   console.log("Player connected");
 
   ws.on("message", function incoming(message) {
-    console.log("Received:", message);
+    const data = message.toString(); // Konversi Buffer ke string JSON
+    console.log("Received:", data);
 
-    // Kirim ulang pesan ke semua pemain lain
+    // Kirim ulang data ke semua pemain lain
     wss.clients.forEach(function each(client) {
       if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
+        client.send(data);
       }
     });
   });
