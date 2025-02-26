@@ -1,82 +1,72 @@
 const WebSocket = require("ws");
 
-const server = new WebSocket.Server({ port: 8000 });
+const wss = new WebSocket.Server({ port: 8000 });
 
-let rooms = {}; // Menyimpan daftar room dan pemainnya
+let rooms = {}; // Menyimpan data room dan pemain
 
-server.on("connection", (ws) => {
+wss.on("connection", function connection(ws) {
   console.log("Player Connected!");
 
-  ws.on("message", (message) => {
+  ws.on("message", function incoming(message) {
     try {
       let data = JSON.parse(message);
-      let username = data.username;
-      let room = data.room;
+      console.log("Received Data:", data); // Log semua data yang diterima
 
-      // Jika pemain ingin membuat room
-      if (data.action === "create_room") {
-        if (rooms[room]) {
-          ws.send(JSON.stringify({ error: "Room sudah ada!" }));
-        } else {
-          rooms[room] = { players: {}, meteors: [] };
-          ws.send(JSON.stringify({ success: "Room berhasil dibuat!" }));
-        }
-        return;
-      }
-
-      // Jika pemain ingin join room
       if (data.action === "join_room") {
-        if (!rooms[room]) {
-          ws.send(JSON.stringify({ error: "Room tidak ditemukan!" }));
-          return;
+        let roomName = data.room;
+        let username = data.username;
+
+        if (!rooms[roomName]) {
+          rooms[roomName] = {};
         }
 
-        rooms[room].players[username] = { x: 0 };
-        ws.send(JSON.stringify({ success: `Bergabung ke room ${room}` }));
-        return;
+        rooms[roomName][username] = ws;
+        ws.room = roomName;
+        ws.username = username;
+
+        console.log(`User ${username} joined room: ${roomName}`);
+        console.log("Current Rooms State:", rooms);
       }
 
-      // Jika pemain mengirim data posisi X
-      if (data.x !== undefined) {
-        if (!rooms[room] || !rooms[room].players[username]) return;
+      if (data.action === "move") {
+        let roomName = ws.room;
+        let username = ws.username;
 
-        rooms[room].players[username].x = data.x;
+        if (roomName && rooms[roomName]) {
+          console.log(
+            `Player ${username} moved to x: ${data.x} in room: ${roomName}`
+          );
 
-        let updateData = JSON.stringify({
-          username: username,
-          x: data.x,
-        });
+          let payload = JSON.stringify({
+            action: "update_position",
+            username: username,
+            x: data.x,
+          });
 
-        broadcast(room, updateData);
-      }
-
-      // Jika pemain ingin spawn meteor
-      if (data.meteor === "spawn") {
-        if (!rooms[room]) return;
-
-        let meteorX = Math.floor(Math.random() * 400) - 200;
-        rooms[room].meteors.push(meteorX);
-
-        let meteorData = JSON.stringify({ meteorX: meteorX });
-        broadcast(room, meteorData);
+          // Kirim posisi ke semua pemain dalam room yang sama
+          Object.keys(rooms[roomName]).forEach((player) => {
+            if (rooms[roomName][player] !== ws) {
+              rooms[roomName][player].send(payload);
+            }
+          });
+        }
       }
     } catch (error) {
-      console.log("Error parsing JSON:", error);
+      console.log("Error parsing message:", error);
     }
   });
 
-  ws.on("close", () => {
-    console.log("Player Disconnected!");
+  ws.on("close", function close() {
+    if (ws.room && rooms[ws.room]) {
+      console.log(`Player ${ws.username} disconnected from room: ${ws.room}`);
+      delete rooms[ws.room][ws.username];
+
+      if (Object.keys(rooms[ws.room]).length === 0) {
+        delete rooms[ws.room];
+        console.log(`Room ${ws.room} is now empty and deleted.`);
+      }
+    }
   });
 });
 
-// Fungsi broadcast ke semua pemain dalam room
-function broadcast(room, data) {
-  server.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
-    }
-  });
-}
-
-console.log("Server running on ws://localhost:8000");
+console.log("WebSocket server running on ws://localhost:8000");
